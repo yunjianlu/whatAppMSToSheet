@@ -1,0 +1,893 @@
+{
+  "name": "Pete_Invoice",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI assistant that extracts structured data from invoices.  \nRead the invoice text carefully and return only a single JSON object with the following fields:\n\n{\n  \"date\": \"YYYY-MM-DD\",\n  \"time\": \"HH:MM\",\n  \"itemName\": \"string\",\n  \"type\": \"string\",              // e.g., Food, Grocery, Gas, etc.\n  \"cardEnding\": \"string\",        // last 4 digits if available\n  \"total\": \"number\",             // final total amount\n  \"address\": \"string\",\n  \"sheetName\": \"string\",         // choose based on business type (e.g., NiceD, CadenV, Peter)\n  \"paymentType\": \"string\",       // e.g., Credit, Debit, Cash, Gift Card\n  \"tip\": \"number\",               // tip amount if shown, else 0\n  \"storeName\": \"string\"\n}\n\n### Rules:\n- If a field is missing in the invoice, return an empty string \"\" (or 0 for numbers).  \n- Do not include any text outside the JSON object.  \n- \"sheetName\" must be inferred from \"cardEnding\" using business logic if possible.  \n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [1136, -112],
+      "id": "16e950ad-9490-438c-b856-f31c007a0bdb",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Whatsapp Chat').item.json.contacts[0].wa_id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [1216, 0],
+      "id": "cc530001-d959-492a-b4cd-46ec2636b163",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "messages",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [464, -16],
+      "id": "bed9b77e-930f-4b10-b6a3-578954e315cf",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.type =='audio' && Boolean( $json.audio.voice) }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "b464fc29-4f40-4a32-8033-5d8afaad1eec"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Audio MS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "be5514ac-c61b-439d-b562-62a1864c3995",
+                    "leftValue": "={{ $json.type =='image' && Boolean($json.image)}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Image MS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2f18b987-ed12-4ad3-af00-50af43219d1b",
+                    "leftValue": "={{ $json.type  =='location' && Boolean($json.location)}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Location"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Text MS"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [608, -48],
+      "id": "e2601351-ac95-4c2c-a498-531705951823",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-1.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [1088, 0],
+      "id": "6f2b86a4-0091-4c91-addd-062ccb43b00b",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "fXFgKCdEBs8euLtq",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// --- Company card mapping ---\nconst niceDCards = [\"1009\", \"3390\", \"5195\", \"9480\"];\nconst cadenVCards = [\"6368\"];\nconst peterCards = []; // add last4 if needed\n\n// --- Check AI agent output exists ---\nif (!$json.output) {\n    return [{\n        json: {\n            date: \"\",\n            time: \"\",\n            itemName: \"\",\n            type: \"\",\n            cardEnding: \"\",\n            total: \"\",\n            tip: \"\",\n            address: \"\",\n            storeName: \"\",\n            sheetName: \"Other\",\n            paymentType: \"\",\n            dateRecorded: new Date().toISOString()\n        }\n    }];\n}\n\n// --- Clean raw JSON text ---\nlet raw = $json.output.replace(/```json\\s*|```/g, \"\").trim();\n\n// --- Parse JSON safely ---\nlet parsed = {};\ntry { parsed = JSON.parse(raw); } \ncatch (err) { parsed = {}; }\n\n// --- Extract values directly ---\nconst date = parsed.date || \"\";\nconst time = parsed.time || \"\";\nconst itemName = parsed.itemName || \"\";\nconst expenseType = parsed.type || \"Other\";\nconst tip = parsed.tip || 0;\nconst cardEnding = parsed.cardEnding || \"\";\nconst cardType = parsed.paymentType || \"\";\nconst total = parsed.total || \"\";\nconst address = parsed.address || \"\";\nconst storeName = parsed.storeName || \"\";\n\n// --- Determine sheetName ---\nlet sheetName = parsed.sheetName || \"Other\"; // default to parsed, fallback to logic\nif (!sheetName || sheetName === \"\") {\n    if ((cardType.toUpperCase().includes(\"AMEX\")) || niceDCards.includes(cardEnding)) {\n        sheetName = \"NiceD\";\n    } else if (cadenVCards.includes(cardEnding)) {\n        sheetName = \"CV\";\n    } else if (peterCards.includes(cardEnding)) {\n        sheetName = \"Peter\";\n    }\n}\n\n// --- Current timestamp ---\nconst dateRecorded = new Date().toISOString();\n\n// --- Return final JSON ---\nreturn [{\n    json: {\n        Date: date,\n        Time: time,\n        ItemPurchased: itemName,\n        Type: expenseType,\n        Tip: tip,\n        CardEnding: cardEnding,\n        Total: total,\n        Address: address,\n        StoreName: storeName,\n        SheetName: sheetName,\n        PaymentType: cardType,\n        DateRecorded: dateRecorded\n    }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, -112],
+      "id": "1c0ba961-c201-4452-a5e8-1d6c42674e5e",
+      "name": "Jsonize Code1"
+    },
+    {
+      "parameters": {
+        "url": "=https://nominatim.openstreetmap.org/reverse?format=json&lat={{ $json.location.latitude }}&lon={{ $json.location.longitude }}&addressdetails=1\n",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [{}]
+        },
+        "options": {}
+      },
+      "id": "4b0a841b-85f7-4c3d-9d46-f666a55c11a2",
+      "name": "Geocode Address",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [816, 96]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the message text\nconst messageBody = $input.first().json.text.body || \"\";\n\n// Trim and get the last character (company code)\nconst trimmedMessage = messageBody.trim();\nconst lastChar = trimmedMessage.slice(-1).toUpperCase();\n\n// Map last letter to company\nconst companyMap = {\n    \"N\": \"NiceD\",\n    \"C\": \"CV\",\n    \"B\": \"Bridge\"\n};\n\n// Determine company, default to \"Other\"\nconst company = companyMap[lastChar] || \"Other\";\n\n// Extract address by removing the last letter if it matches a company code\nconst address = companyMap[lastChar] ? trimmedMessage.slice(0, -1).trim() : trimmedMessage;\n\n// Get current date and time in YYYY-MM-DD HH:MM format\nconst now = new Date();\nconst year = now.getFullYear();\nconst month = String(now.getMonth() + 1).padStart(2, \"0\");\nconst day = String(now.getDate()).padStart(2, \"0\");\nconst hours = String(now.getHours()).padStart(2, \"0\");\nconst minutes = String(now.getMinutes()).padStart(2, \"0\");\nconst datetime = `${year}-${month}-${day} ${hours}:${minutes}`;\n\n// Return structured output\nreturn [\n    {\n        json: {\n            Des_Address: address,\n            Company: company,\n            Datetime: datetime\n        }\n    }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [816, 272],
+      "id": "351ec40e-9407-4f3a-8763-7624a713de1c",
+      "name": "Get Company"
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.image.id }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [816, -112],
+      "id": "21cc4a86-dfa0-407b-8f9c-4543eac9e570",
+      "name": "Get Image Link",
+      "webhookId": "4b40e191-c2ca-4d08-a5e0-2b180826a825",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ztWKI86cBW34BeP9",
+          "name": "WhatsApp BS account sys user"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "media",
+        "operation": "mediaUrlGet",
+        "mediaGetId": "={{ $json.audio.id }}"
+      },
+      "type": "n8n-nodes-base.whatsApp",
+      "typeVersion": 1,
+      "position": [832, -304],
+      "id": "ca5b8871-4fc7-46cf-a65b-79514acefa2f",
+      "name": "Get Audio Link",
+      "webhookId": "53560902-115d-421c-8e5c-045d185dd3d9",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ztWKI86cBW34BeP9",
+          "name": "WhatsApp BS account sys user"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input fields\nconst address = $input.first().json.address || {};\n\n// Build formatted start address\nconst formattedAddress = [\n  address.house_number,\n  address.road,\n  address.city,\n  address.state,\n].filter(part => part && String(part).trim() !== \"\").join(\", \");\n\n// Persist across executions (global to the workflow)\nconst workflowStaticData = $getWorkflowStaticData('global');\nworkflowStaticData.Start_Address = formattedAddress;\n\nreturn [\n  {\n    json: {\n      Start_Address: formattedAddress,\n      status: \"Start address stored\",\n    },\n  },\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [976, 96],
+      "id": "b3628ec6-f3c2-4157-98f9-63c05c4ea448",
+      "name": "Extract Address"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [976, -112],
+      "id": "9e6242e5-6662-4c67-93ca-b71cbab8c6cb",
+      "name": "Dowload Image",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ztWKI86cBW34BeP9",
+          "name": "WhatsApp BS account sys user"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "whatsAppApi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [976, -304],
+      "id": "94e16a14-a933-45cb-af13-228840f40591",
+      "name": "Dowload Audio",
+      "credentials": {
+        "whatsAppApi": {
+          "id": "ztWKI86cBW34BeP9",
+          "name": "WhatsApp BS account sys user"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "updates": ["messages"],
+        "options": {
+          "messageStatusUpdates": ["all"]
+        }
+      },
+      "type": "n8n-nodes-base.whatsAppTrigger",
+      "typeVersion": 1,
+      "position": [304, -16],
+      "id": "6dbfebde-847c-4af2-8db7-406cac9531ef",
+      "name": "Whatsapp Chat",
+      "webhookId": "80a8ea64-0062-44cb-b3a4-d962435c3953",
+      "credentials": {
+        "whatsAppTriggerApi": {
+          "id": "MEjosdXuY09w6Lui",
+          "name": "WhatsApp OAuth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1MVpa-CRqlsSjR4P-OXvvNyAHo-Xt51s4CfB9R8r6O5I",
+          "mode": "list",
+          "cachedResultName": "AllExpenseTable",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MVpa-CRqlsSjR4P-OXvvNyAHo-Xt51s4CfB9R8r6O5I/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.SheetName }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Time",
+              "displayName": "Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ItemPurchased",
+              "displayName": "ItemPurchased",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "CardEnding",
+              "displayName": "CardEnding",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Total",
+              "displayName": "Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Address",
+              "displayName": "Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "SheetName",
+              "displayName": "SheetName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "PaymentType",
+              "displayName": "PaymentType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tip",
+              "displayName": "Tip",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "StoreName",
+              "displayName": "StoreName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DateRecorded",
+              "displayName": "DateRecorded",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1616, -112],
+      "id": "4266b5ad-0521-4f37-a78d-f73fded4d88a",
+      "name": "Append Incoive",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MKiap7uY9Yz2PaRb",
+          "name": "GSheets ND Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1MewmIwnJD2eXilt-n0Lc7uT3xsqi84awUfGKSvax-7g",
+          "mode": "list",
+          "cachedResultName": "Voice Recording Log",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MewmIwnJD2eXilt-n0Lc7uT3xsqi84awUfGKSvax-7g/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Log1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1MewmIwnJD2eXilt-n0Lc7uT3xsqi84awUfGKSvax-7g/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "text": "={{ $json.text }}",
+            "datetime": "={{ $today }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "datetime",
+              "displayName": "datetime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "text",
+              "displayName": "text",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_items (task)",
+              "displayName": "action_items (task)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_items (due_date)",
+              "displayName": "action_items (due_date)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "language",
+              "displayName": "language",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1616, -304],
+      "id": "830d4d86-0136-41bc-b34a-185044bd7ef8",
+      "name": "Append Notes",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MKiap7uY9Yz2PaRb",
+          "name": "GSheets ND Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [1200, -304],
+      "id": "9e048d2a-5945-481a-b876-79df43acc18b",
+      "name": "Recording to Text",
+      "credentials": {
+        "openAiApi": {
+          "id": "lJbFaXbLU3Zk9Uff",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1eSYS5O7-HzDRC7CkX_kD3RzSuWql4BPPGDm0fWx3cRQ",
+          "mode": "list",
+          "cachedResultName": "Mileage table",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1eSYS5O7-HzDRC7CkX_kD3RzSuWql4BPPGDm0fWx3cRQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "NiceD",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1eSYS5O7-HzDRC7CkX_kD3RzSuWql4BPPGDm0fWx3cRQ/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Start_Address": "={{ $json.Start_Address }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Datetime",
+              "displayName": "Datetime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Start_Address",
+              "displayName": "Start_Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Des_Address",
+              "displayName": "Des_Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1616, 96],
+      "id": "2dcf9ef4-d8e0-47e1-ab13-e31d02827c5e",
+      "name": "Append Current Address",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MKiap7uY9Yz2PaRb",
+          "name": "GSheets ND Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1eSYS5O7-HzDRC7CkX_kD3RzSuWql4BPPGDm0fWx3cRQ",
+          "mode": "list",
+          "cachedResultName": "Mileage table",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1eSYS5O7-HzDRC7CkX_kD3RzSuWql4BPPGDm0fWx3cRQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.Company }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Datetime",
+              "displayName": "Datetime",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Start_Address",
+              "displayName": "Start_Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Des_Address",
+              "displayName": "Des_Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [1616, 272],
+      "id": "c954403a-8a7c-4a63-ace2-5c8df2727505",
+      "name": "Append Final Address",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MKiap7uY9Yz2PaRb",
+          "name": "GSheets ND Account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Jsonize Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get Audio Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Image Link",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Geocode Address",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Company",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jsonize Code1": {
+      "main": [
+        [
+          {
+            "node": "Append Incoive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Geocode Address": {
+      "main": [
+        [
+          {
+            "node": "Extract Address",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Company": {
+      "main": [
+        [
+          {
+            "node": "Append Final Address",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Image Link": {
+      "main": [
+        [
+          {
+            "node": "Dowload Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Audio Link": {
+      "main": [
+        [
+          {
+            "node": "Dowload Audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Address": {
+      "main": [
+        [
+          {
+            "node": "Append Current Address",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dowload Image": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dowload Audio": {
+      "main": [
+        [
+          {
+            "node": "Recording to Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Whatsapp Chat": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recording to Text": {
+      "main": [
+        [
+          {
+            "node": "Append Notes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "72a1e813-9759-48c3-a683-6d236980e11d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7ba0142ade1d31b1da6b366d73822135c487e7c680b4dc66e24e391d44a5da3f"
+  },
+  "id": "H0qSgVS2AK8OCRRC",
+  "tags": []
+}
