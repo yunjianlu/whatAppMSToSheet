@@ -2,11 +2,11 @@
 
 ## Overview
 
-This project demonstrates an automated invoice processing workflow using [n8n](https://n8n.io/). It integrates WhatsApp, Microsoft services, and Google Sheets to streamline invoice management and data extraction.
+This project demonstrates an automated WhatsApp Business message processing workflow using [n8n](https://n8n.io/). It integrates WhatsApp, GenAI models, and Google Sheets to streamline invoice management and data extraction.
 
 ## Features
 
-- Automated invoice collection from WhatsApp
+- Automated business expense(invoice, mileage) collection, from WhatsApp message
 - Extract and validation data
 - Integration with AI models on your preference(OpenAI, Gemini, and so on)
 - Storage and tracking in Google Sheets
@@ -32,7 +32,7 @@ scripts/           # Helper scripts (e.g., setup)
    - Open n8n.
    - Import the JSON file from `workflows/invoice-processing.json`.
 3. **Configure credentials:**
-   - Set up WhatsApp, Microsoft, and Google Sheets credentials in n8n.
+   - Set up WhatsApp, Model's API, and Google Sheets credentials in n8n.
 4. **Run the workflow:**
    - Trigger the workflow and monitor execution.
 
