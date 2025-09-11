@@ -41,7 +41,7 @@ scripts/           # Helper scripts (e.g., setup)
 The workflow processes WhatsApp messages of various types (voice, image, address, location), uses AI for extraction/formatting, and stores results in Google Sheets.
 
 ```mermaid
-flowchart TD
+Flowchart TD
    A[WhatsApp Message Received] --> B{Contents Condition}
    B -->|Voice| C1[Get Voice Content]
    B -->|Image| C2[Get Image Content]
@@ -51,7 +51,7 @@ flowchart TD
    C2 --> D
    C3 --> D
    C4 --> D
-   D --> E[Store in Database (Google Sheets)]
+   D --> E["Store in Database (Google Sheets)"]
 ```
 
 For a detailed breakdown, see [docs/architecture.md](docs/architecture.md).
