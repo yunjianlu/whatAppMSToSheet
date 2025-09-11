@@ -1,4 +1,4 @@
-# n8n Invoice Processing Workflow
+# N8n Invoice Processing Workflow
 
 ## Overview
 
@@ -7,10 +7,9 @@ This project demonstrates an automated invoice processing workflow using [n8n](h
 ## Features
 
 - Automated invoice collection from WhatsApp
-- Data extraction and validation
-- Integration with Microsoft services (e.g., Outlook, OneDrive)
+- Extract and validation data
+- Integration with AI models on your preference(OpenAI, Gemini, and so on)
 - Storage and tracking in Google Sheets
-- AI-powered content extraction and formatting
 - Error handling and notifications
 
 ## Project Structure

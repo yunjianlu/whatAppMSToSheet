@@ -26,7 +26,7 @@ flowchart TD
 
 ### 1. Input Layer (User Interaction)
 
-- **WhatsApp Chat:** Users send messages (text, audio, images, or location).
+- **WhatsApp Chat:** Users send messages (text, audio, images, or location) to a phone number you define.
 
 ### 2. Message Routing Layer
 
