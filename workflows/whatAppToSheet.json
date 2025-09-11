@@ -167,17 +167,7 @@
       "name": "Geocode Address",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [816, 96]
-    },
-    {
-      "parameters": {
-        "jsCode": "// Get the message text\nconst messageBody = $input.first().json.text.body || \"\";\n\n// Trim and get the last character (company code)\nconst trimmedMessage = messageBody.trim();\nconst lastChar = trimmedMessage.slice(-1).toUpperCase();\n\n// Map last letter to company\nconst companyMap = {\n    \"N\": \"NiceD\",\n    \"C\": \"CV\",\n    \"B\": \"Bridge\"\n};\n\n// Determine company, default to \"Other\"\nconst company = companyMap[lastChar] || \"Other\";\n\n// Extract address by removing the last letter if it matches a company code\nconst address = companyMap[lastChar] ? trimmedMessage.slice(0, -1).trim() : trimmedMessage;\n\n// Get current date and time in YYYY-MM-DD HH:MM format\nconst now = new Date();\nconst year = now.getFullYear();\nconst month = String(now.getMonth() + 1).padStart(2, \"0\");\nconst day = String(now.getDate()).padStart(2, \"0\");\nconst hours = String(now.getHours()).padStart(2, \"0\");\nconst minutes = String(now.getMinutes()).padStart(2, \"0\");\nconst datetime = `${year}-${month}-${day} ${hours}:${minutes}`;\n\n// Return structured output\nreturn [\n    {\n        json: {\n            Des_Address: address,\n            Company: company,\n            Datetime: datetime\n        }\n    }\n];\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [816, 272],
-      "id": "351ec40e-9407-4f3a-8763-7624a713de1c",
-      "name": "Get Company"
+      "position": [848, 144]
     },
     {
       "parameters": {
@@ -187,7 +177,7 @@
       },
       "type": "n8n-nodes-base.whatsApp",
       "typeVersion": 1,
-      "position": [816, -112],
+      "position": [832, -112],
       "id": "21cc4a86-dfa0-407b-8f9c-4543eac9e570",
       "name": "Get Image Link",
       "webhookId": "4b40e191-c2ca-4d08-a5e0-2b180826a825",
@@ -223,7 +213,7 @@
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [976, 96],
+      "position": [992, 144],
       "id": "b3628ec6-f3c2-4157-98f9-63c05c4ea448",
       "name": "Extract Address"
     },
@@ -236,7 +226,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [976, -112],
+      "position": [992, -112],
       "id": "9e6242e5-6662-4c67-93ca-b71cbab8c6cb",
       "name": "Dowload Image",
       "credentials": {
@@ -255,7 +245,7 @@
       },
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [976, -304],
+      "position": [992, -304],
       "id": "94e16a14-a933-45cb-af13-228840f40591",
       "name": "Dowload Audio",
       "credentials": {
@@ -605,7 +595,7 @@
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
-      "position": [1616, 96],
+      "position": [1616, 144],
       "id": "2dcf9ef4-d8e0-47e1-ab13-e31d02827c5e",
       "name": "Append Current Address",
       "credentials": {
@@ -679,7 +669,7 @@
       },
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
-      "position": [1616, 272],
+      "position": [1616, 320],
       "id": "c954403a-8a7c-4a63-ace2-5c8df2727505",
       "name": "Append Final Address",
       "credentials": {
@@ -688,6 +678,16 @@
           "name": "GSheets ND Account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the message text\nconst messageBody = $input.first().json.text.body || \"\";\n\n// Trim and get the last character (company code)\nconst trimmedMessage = messageBody.trim();\nconst lastChar = trimmedMessage.slice(-1).toUpperCase();\n\n// Map last letter to company\nconst companyMap = {\n    \"N\": \"NiceD\",\n    \"C\": \"CV\",\n    \"B\": \"Bridge\"\n};\n\n// Determine company, default to \"Other\"\nconst company = companyMap[lastChar] || \"Other\";\n\n// Extract address by removing the last letter if it matches a company code\nconst address = companyMap[lastChar] ? trimmedMessage.slice(0, -1).trim() : trimmedMessage;\n\n// Get current date and time in YYYY-MM-DD HH:MM format\nconst now = new Date();\nconst year = now.getFullYear();\nconst month = String(now.getMonth() + 1).padStart(2, \"0\");\nconst day = String(now.getDate()).padStart(2, \"0\");\nconst hours = String(now.getHours()).padStart(2, \"0\");\nconst minutes = String(now.getMinutes()).padStart(2, \"0\");\nconst datetime = `${year}-${month}-${day} ${hours}:${minutes}`;\n\n// Return structured output\nreturn [\n    {\n        json: {\n            Des_Address: address,\n            Company: company,\n            Datetime: datetime\n        }\n    }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [848, 320],
+      "id": "351ec40e-9407-4f3a-8763-7624a713de1c",
+      "name": "Get Company Name"
     }
   ],
   "pinData": {},
@@ -750,7 +750,7 @@
         ],
         [
           {
-            "node": "Get Company",
+            "node": "Get Company Name",
             "type": "main",
             "index": 0
           }
@@ -784,17 +784,6 @@
         [
           {
             "node": "Extract Address",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Get Company": {
-      "main": [
-        [
-          {
-            "node": "Append Final Address",
             "type": "main",
             "index": 0
           }
@@ -877,13 +866,24 @@
           }
         ]
       ]
+    },
+    "Get Company Name": {
+      "main": [
+        [
+          {
+            "node": "Append Final Address",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "72a1e813-9759-48c3-a683-6d236980e11d",
+  "versionId": "402ac070-9c2e-49b7-bf0b-d8e7b61210b9",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "7ba0142ade1d31b1da6b366d73822135c487e7c680b4dc66e24e391d44a5da3f"
